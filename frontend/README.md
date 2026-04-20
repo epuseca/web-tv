@@ -1,72 +1,95 @@
 # Frontend - Slideshow
-HTML + CSS + JavaScript
+HTML + CSS + JavaScript + **MongoDB Data API**
+
+## 🔄 Lưu ý Kiến Trúc
+Frontend **lấy dữ liệu trực tiếp từ MongoDB** qua MongoDB Data API - **không qua backend API**.
+
+Backend Admin vẫn tồn tại để quản lý dữ liệu (CRUD), nhưng Frontend độc lập và có thể deployed riêng.
 
 ## Cấu trúc thư mục
 ```
 /frontend
 ├── index.html        # Main slideshow page
-├── script.js         # Slideshow logic
-└── config.md         # Configuration guide
+├── script.js         # Slideshow logic + MongoDB Data API
+└── README.md         # Hướng dẫn này
 ```
 
-## Cách sử dụng
+## 🚀 Setup MongoDB Data API
 
-### 1. Local (với backend chạy ở localhost:3000)
-```bash
-# Mở file index.html trực tiếp hoặc sử dụng Live Server
-```
+### 1️⃣ Enable MongoDB Data API trên Atlas
+[Xem chi tiết: `../MONGODB_DATA_API_SETUP.md`]
 
-Script tự động phát hiện nếu server là localhost → dùng http://localhost:3000
+**Tóm tắt:**
+1. Vào MongoDB Atlas → App Services
+2. Tạo New App → Enable Data API
+3. Copy App ID và API Key
 
-### 2. Production (backend deployed)
-Có 3 cách cấu hình API URL:
+### 2️⃣ Cấu hình Frontend
 
-#### Cách A: Query Parameter
-```
-https://your-slideshow.netlify.app/index.html?apiUrl=https://your-backend.render.com
-```
-
-#### Cách B: Local Storage (via Console)
-Mở DevTools (F12) → Console:
+**Cách A: Hardcode (Dev)** - Edit `script.js`:
 ```javascript
-setApiUrl('https://your-backend.render.com')
+const CONFIG = {
+    DATA_API_URL: 'https://data.mongodb-api.com/app/YOUR_APP_ID/endpoint/data/v1/action/find',
+    DATA_API_KEY: 'YOUR_API_KEY',
+    ...
+}
 ```
 
-#### Cách C: Update script.js
-Sửa trực tiếp trong `script.js`:
+**Cách B: Query Parameter (Recommended)** - Mở file:
+```
+index.html?dataApiUrl=XXX&dataApiKey=YYY
+```
+
+**Cách C: Console Runtime** - DevTools (F12 → Console):
 ```javascript
-API_BASE_URL: 'https://your-backend.render.com'
+setMongoConfig('https://...', 'API_KEY')
 ```
 
 ---
 
-## Deploy Frontend
+## 💻 Cách sử dụng
 
-### Option 1: Netlify (Recommended)
+### Local (với MongoDB có sẵn)
 ```bash
-# Drag & drop /frontend folder
+# 1. Cấu hình MongoDB Data API (xem trên)
+# 2. Mở file index.html hoặc dùng Live Server
+# 3. Frontend sẽ tự tải dữ liệu từ MongoDB
 ```
 
-### Option 2: Vercel
-```bash
-# Project settings → Framework = Next.js (skip)
-# Deploy static files
+Script **tự động phát hiện** credentials từ:
+1. localStorage override
+2. Query parameters
+3. Hardcoded values (nếu cấu hình)
+
+### Production (deployed)
+
+#### Frontend deploy:
+- **Netlify**: Drag & drop `/frontend` folder
+- **Vercel**: Connect GitHub repo
+- **GitHub Pages**: Push to gh-pages branch
+- **Render Static**: Create Static Site
+
+#### Cấu hình trên Production:
+
+**Option 1: Query Parameters**
+```
+https://your-slideshow.netlify.app/index.html?dataApiUrl=https://data.mongodb-api.com/app/YOUR_APP_ID/endpoint/data/v1/action/find&dataApiKey=YOUR_API_KEY
 ```
 
-### Option 3: GitHub Pages
-```bash
-# Push /frontend to separate repo
-# Enable Pages in settings
+**Option 2: Environment Variables** (nếu dùng build tool)
+```
+VITE_MONGO_DATA_API_URL=...
+VITE_MONGO_DATA_API_KEY=...
 ```
 
-### Option 4: Render Static Site
-1. Create new Static Site
-2. Connect GitHub
-3. Publish directory: `/frontend`
+**Option 3: Backend Proxy** (Option nhưng không cần)
+```
+Giữ backend để proxy MongoDB requests (bảo mật hơn)
+```
 
 ---
 
-## Features
+## ✨ Features
 
 ✅ Slideshow 20 giây/ảnh  
 ✅ Fade effect  
@@ -74,11 +97,12 @@ API_BASE_URL: 'https://your-backend.render.com'
 ✅ Auto-hide controls  
 ✅ Keyboard shortcuts  
 ✅ Tự auto-refresh mỗi 60 giây  
-✅ Config API URL dễ dàng  
+✅ **Lấy data trực tiếp từ MongoDB**  
+✅ Query param / localStorage config  
 
 ---
 
-## Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
 | Phím | Chức năng |
 |------|----------|
@@ -90,25 +114,126 @@ API_BASE_URL: 'https://your-backend.render.com'
 
 ---
 
-## Debugging
+## 🐛 Debugging
 
+### Check Connection
 Mở DevTools (F12) → Console:
 
 ```javascript
 // Xem status
 logStatus()
 
-// Đổi API URL
-setApiUrl('https://your-backend.render.com')
-
-// Xem logs
-console.log() output
+// Output:
+// 📊 Slideshow Status: {
+//   mongoDataApiUrl: "https://...",
+//   database: "portal-backend",
+//   collection: "images",
+//   totalSlides: 5,
+//   ...
+// }
 ```
+
+### Change MongoDB Config at Runtime
+```javascript
+setMongoConfig(
+    'https://data.mongodb-api.com/app/YOUR_APP_ID/endpoint/data/v1/action/find',
+    'YOUR_API_KEY'
+)
+```
+
+### View Console Logs
+- Opening DevTools automatically shows connection logs
+- Look for `✅ Tải X hình ảnh thành công` or error messages
 
 ---
 
-## Lưu ý
-- Cần CORS enabled trên backend
-- Chỉ hiển thị hình ảnh có `isActive: true`
-- Tự động retry nếu lỗi kết nối
-- Hỗ trợ lazy loading cho ảnh
+## 🔐 Bảo Mật
+
+⚠️ **Không hardcode API Key vào source code nếu push lên GitHub!**
+
+**Cách tốt:**
+- Dùng query parameters
+- Dùng environment variables
+- Dùng localStorage (set từ console/admin panel)
+
+**Cách tệ:**
+- Hardcode API Key trong source
+- Commit sensitive data lên Git
+
+---
+
+## 📊 Database Schema
+
+Frontend expects documents với structure:
+```javascript
+{
+    "_id": ObjectId,
+    "name": String,           // Tên hình ảnh
+    "description": String,    // Mô tả
+    "imageData": String,      // Base64 image data
+    "isActive": Boolean,      // true = hiển thị, false = ẩn
+    "createdAt": Date,        // Thời tạo
+    "updatedAt": Date         // Lần sửa cuối
+}
+```
+
+⚠️ Frontend **chỉ lấy images có `isActive: true`**
+
+---
+
+## 📝 Quản lý Dữ liệu
+
+- **Thêm/Sửa/Xóa ảnh**: Dùng Backend Admin (`backend/views/admin.ejs`)
+- **Toggle ảnh**: Backend → click nút toggle
+- **Frontend**: Chỉ đọc dữ liệu (read-only)
+
+---
+
+## 🚨 Common Issues
+
+| Lỗi | Giải pháp |
+|-----|----------|
+| "Không có hình ảnh" | Thêm ảnh từ backend admin & set `isActive: true` |
+| "MongoDB error 401" | Kiểm tra API Key có đúng không |
+| "404 Not Found" | Database/Collection name có đúng không |
+| Blank screen | Mở DevTools check console logs |
+
+---
+
+## 🎯 Kiến Trúc Tổng Thể
+
+```
+┌─────────────────────────┐
+│   Frontend Slideshow    │
+│  (index.html + script)  │
+│    HTML/CSS/JS (ES6+)   │
+│                         │
+│  └─ MongoDB Data API───→│ MongoDB Atlas
+│     (Direct connection) │ portal-backend
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│   Backend Admin Panel   │
+│ (Node.js + Express)     │
+│    EJS + Ant Design     │
+│                         │
+│  └─ REST API (CRUD)───→│ MongoDB Atlas
+│     (Management only)   │ portal-backend
+└─────────────────────────┘
+```
+
+**Key Points:**
+- ✅ Frontend & Backend hoàn toàn độc lập
+- ✅ Cùng Database → đồng bộ dữ liệu real-time
+- ✅ Frontend có thể deploy anywhere (Netlify, Vercel, etc.)
+- ✅ Backend chạy Local hoặc trên Server riêng
+
+---
+
+## 📚 Referensi
+
+- [MongoDB Data API Docs](https://www.mongodb.com/docs/atlas/app-services/data-api/)
+- [script.js](./script.js) - Chi tiết code
+- [MONGODB_DATA_API_SETUP.md](../MONGODB_DATA_API_SETUP.md) - Setup guide chi tiết
+
+

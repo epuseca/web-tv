@@ -1,20 +1,29 @@
 /**
  * SLIDESHOW SYSTEM - Frontend Logic
- * Lấy dữ liệu trực tiếp từ MongoDB Atlas thông qua API
+ * Lấy dữ liệu trực tiếp từ MongoDB Atlas bằng MongoDB Data API
  * 
- * CẤU HÌNH API URL:
- * 1. Để sử dụng backend local: API_BASE_URL = 'http://localhost:3000'
- * 2. Để sử dụng backend remote (Render/Heroku): API_BASE_URL = 'https://your-backend-url.com'
- * 3. Để sử dụng MongoDB Data API trực tiếp: Xem hướng dẫn dưới
+ * SETUP MONGODB DATA API:
+ * 1. Vào https://cloud.mongodb.com/v2
+ * 2. Chọn Project → App Services → Create New App
+ * 3. Enable Data API
+ * 4. Tạo API Key: Create API Key
+ * 5. Copy App ID và API Key vào CONFIG bên dưới
+ * 
+ * HOẶC:
+ * - Dùng query parameter: ?dataApiUrl=XXX&dataApiKey=XXX
+ * - Dùng localStorage: setMongoConfig('URL', 'KEY')
  */
 
 // ==================== CONFIG ====================
 const CONFIG = {
-    // API Base URL - Thay đổi này để kết nối đến backend
-    // - Local: 'http://localhost:3000'
-    // - Remote: 'https://your-app.render.com' hoặc domain khác
-    // - Tự động dùng domain hiện tại: window.location.origin
-    API_BASE_URL: getApiBaseUrl(),
+    // MongoDB Data API Configuration
+    // ❗ Thay đổi những giá trị này với thông tin từ MongoDB Atlas
+    DATA_API_URL: getDataApiUrl() || 'https://data.mongodb-api.com/app/YOUR_APP_ID/endpoint/data/v1/action/find',
+    DATA_API_KEY: getDataApiKey() || 'YOUR_API_KEY',
+
+    // MongoDB Database & Collection
+    DATABASE: 'portal-backend',
+    COLLECTION: 'images',
 
     // Thời gian hiển thị mỗi hình ảnh (milliseconds)
     SLIDE_DURATION: 20000, // 20 giây
@@ -26,36 +35,49 @@ const CONFIG = {
     REFRESH_INTERVAL: 60000 // 1 phút
 };
 
-// ==================== HELPER: GET API URL ====================
+// ==================== HELPER: GET MONGODB CREDENTIALS ====================
 /**
- * Xác định API URL dựa trên environment
+ * Lấy MongoDB Data API URL từ các nguồn
  */
-function getApiBaseUrl() {
-    // Kiểm tra localStorage có URL override
-    const savedUrl = localStorage.getItem('slideshow_api_url');
+function getDataApiUrl() {
+    // Kiểm tra localStorage
+    const savedUrl = localStorage.getItem('mongo_data_api_url');
     if (savedUrl) {
-        console.log('📍 Sử dụng API URL từ localStorage:', savedUrl);
+        console.log('📍 Sử dụng MongoDB Data API URL từ localStorage');
         return savedUrl;
     }
 
-    // Kiểm tra query parameter ?apiUrl=xxx
+    // Kiểm tra query parameter
     const params = new URLSearchParams(window.location.search);
-    const queryUrl = params.get('apiUrl');
+    const queryUrl = params.get('dataApiUrl');
     if (queryUrl) {
-        console.log('📍 Sử dụng API URL từ query parameter:', queryUrl);
+        console.log('📍 Sử dụng MongoDB Data API URL từ query parameter');
         return queryUrl;
     }
 
-    // Nếu là localhost, dùng localhost:3000
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        console.log('📍 Local mode - Sử dụng http://localhost:3000');
-        return 'http://localhost:3000';
+    return null;
+}
+
+/**
+ * Lấy MongoDB Data API Key từ các nguồn
+ */
+function getDataApiKey() {
+    // Kiểm tra localStorage
+    const savedKey = localStorage.getItem('mongo_data_api_key');
+    if (savedKey) {
+        console.log('📍 Sử dụng MongoDB Data API Key từ localStorage');
+        return savedKey;
     }
 
-    // Mặc định sử dụng domain hiện tại
-    const url = `${window.location.protocol}//${window.location.host}`;
-    console.log('📍 Production mode - Sử dụng current domain:', url);
-    return url;
+    // Kiểm tra query parameter
+    const params = new URLSearchParams(window.location.search);
+    const queryKey = params.get('dataApiKey');
+    if (queryKey) {
+        console.log('📍 Sử dụng MongoDB Data API Key từ query parameter');
+        return queryKey;
+    }
+
+    return null;
 }
 
 // ==================== STATE ====================
@@ -80,9 +102,10 @@ const infoCounter = document.getElementById('infoCounter');
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🎬 Slideshow System khởi động...');
-    console.log(`🔗 API URL: ${CONFIG.API_BASE_URL}`);
+    console.log(`🔗 MongoDB Data API URL: ${CONFIG.DATA_API_URL}`);
+    console.log(`🔐 Database: ${CONFIG.DATABASE} | Collection: ${CONFIG.COLLECTION}`);
 
-    // Tải hình ảnh từ API
+    // Tải hình ảnh từ MongoDB
     await loadImages();
 
     // Khởi động trình chiếu
@@ -105,23 +128,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==================== LOAD IMAGES ====================
 
 /**
- * Tải danh sách hình ảnh từ API
+ * Tải danh sách hình ảnh trực tiếp từ MongoDB Data API
  */
 async function loadImages() {
     try {
-        // Fetch dữ liệu từ API
-        const endpoint = `${CONFIG.API_BASE_URL}/api/images/active`;
-        console.log(`📥 Đang tải từ: ${endpoint}`);
-
-        const response = await fetch(endpoint);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        // Kiểm tra config
+        if (!CONFIG.DATA_API_URL || CONFIG.DATA_API_URL.includes('YOUR_APP_ID')) {
+            throw new Error('❌ MongoDB Data API URL chưa được cấu hình. Xem hướng dẫn trong script.js');
         }
 
-        slides = await response.json();
+        if (!CONFIG.DATA_API_KEY || CONFIG.DATA_API_KEY.includes('YOUR_API_KEY')) {
+            throw new Error('❌ MongoDB Data API Key chưa được cấu hình. Xem hướng dẫn trong script.js');
+        }
 
-        console.log(`✅ Tải ${slides.length} hình ảnh thành công`);
+        console.log(`📥 Đang tải từ MongoDB Data API...`);
+
+        // Tạo payload cho MongoDB Data API
+        const payload = {
+            collection: CONFIG.COLLECTION,
+            database: CONFIG.DATABASE,
+            dataSource: 'Cluster0', // Tên cluster MongoDB (mặc định là Cluster0, thay đổi nếu cần)
+            filter: { isActive: true }, // Chỉ lấy ảnh có isActive = true
+            sort: { createdAt: -1 } // Sắp xếp theo ngày tạo mới nhất
+        };
+
+        console.log('📤 Payload:', JSON.stringify(payload, null, 2));
+
+        // Gọi MongoDB Data API
+        const response = await fetch(CONFIG.DATA_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': CONFIG.DATA_API_KEY
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        slides = data.documents || [];
+
+        console.log(`✅ Tải ${slides.length} hình ảnh thành công từ MongoDB`);
 
         // Nếu chưa bắt đầu slide show, khởi động
         if (slides.length > 0 && !slideInterval) {
@@ -135,9 +186,9 @@ async function loadImages() {
 
         return slides;
     } catch (error) {
-        console.error('❌ Lỗi khi tải hình ảnh:', error);
+        console.error('❌ Lỗi khi tải hình ảnh từ MongoDB:', error);
 
-        // Nếu lỗi API, thử kết nối lại sau 5 giây
+        // Nếu lỗi, thử kết nối lại sau 5 giây
         if (!slideInterval) {
             setTimeout(loadImages, 5000);
         }
@@ -417,7 +468,7 @@ function showError(message) {
             <i class="fas fa-exclamation-triangle"></i>
             <div>${message}</div>
             <div style="font-size: 12px; margin-top: 10px; color: rgba(255, 77, 79, 0.7);">
-                <small>API URL: ${CONFIG.API_BASE_URL}</small><br>
+                <small>MongoDB Data API: ${CONFIG.DATA_API_URL ? CONFIG.DATA_API_URL.substring(0, 50) + '...' : 'Not configured'}</small><br>
                 Đang thử kết nối lại...
             </div>
         </div>
@@ -442,7 +493,9 @@ function showError(message) {
  */
 function logStatus() {
     console.log('📊 Slideshow Status:', {
-        apiUrl: CONFIG.API_BASE_URL,
+        mongoDataApiUrl: CONFIG.DATA_API_URL,
+        database: CONFIG.DATABASE,
+        collection: CONFIG.COLLECTION,
         totalSlides: slides.length,
         currentIndex: currentIndex,
         isPlaying: isPlaying,
@@ -453,17 +506,25 @@ function logStatus() {
 }
 
 /**
- * Set API URL (để override runtime)
+ * Set MongoDB Data API credentials (để override runtime)
  */
-function setApiUrl(url) {
-    localStorage.setItem('slideshow_api_url', url);
-    CONFIG.API_BASE_URL = url;
-    console.log('🔗 API URL đã được set thành:', url);
+function setMongoConfig(dataApiUrl, dataApiKey) {
+    if (dataApiUrl) {
+        localStorage.setItem('mongo_data_api_url', dataApiUrl);
+        CONFIG.DATA_API_URL = dataApiUrl;
+        console.log('🔗 MongoDB Data API URL đã được set');
+    }
+    if (dataApiKey) {
+        localStorage.setItem('mongo_data_api_key', dataApiKey);
+        CONFIG.DATA_API_KEY = dataApiKey;
+        console.log('🔐 MongoDB Data API Key đã được set');
+    }
     loadImages();
 }
 
 // Export functions để gọi từ console
 window.logStatus = logStatus;
-window.setApiUrl = setApiUrl;
+window.setMongoConfig = setMongoConfig;
 
-console.log('🎬 Slideshow Script loaded successfully');
+console.log('🎬 Slideshow Script loaded successfully - Using MongoDB Data API');
+console.log('💡 Dùng setMongoConfig() để cấu hình MongoDB credentials lúc runtime');
