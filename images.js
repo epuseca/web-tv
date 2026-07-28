@@ -20,7 +20,7 @@ const IMAGES = [
     // ─── Thêm ảnh của bạn vào đây ───────────────────────────
     { file: "bìa fanpage.png", name: "Tiêu đề tuỳ chọn" },
     { file: "Bộ GTCL.jpg", name: "Ảnh thứ hai" },
-    { file: "27.7.jpg", name: "Ảnh thứ ba" },
+
 
     // { file: "anh3.webp" },
     // ────────────────────────────────────────────────────────
